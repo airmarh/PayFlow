@@ -1,0 +1,476 @@
+{
+  "info": {
+    "name": "PayFlow API",
+    "description": "Complete PayFlow API collection. Register or log in first — the JWT token is captured automatically. Webhook requests compute the HMAC-SHA512 signature automatically using the shared secret.",
+    "_postman_id": "payflow-api-v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT Bearer token — set automatically after Register or Login."
+    },
+    {
+      "key": "ownerId",
+      "value": "owner-001",
+      "type": "string",
+      "description": "Wallet owner ID — set automatically after Create Wallet."
+    },
+    {
+      "key": "txReference",
+      "value": "",
+      "type": "string",
+      "description": "Transaction reference — set automatically after Initiate Payment."
+    },
+    {
+      "key": "webhookSecret",
+      "value": "payflow-webhook-secret-change-this-in-production",
+      "type": "string",
+      "description": "Must match Webhook:SecretKey in appsettings.json. Used to sign webhook requests."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Registration and login. Both requests automatically store the returned JWT so every other request is authenticated.",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane.doe@example.com\",\n  \"password\": \"Password1\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Creates a new user account and returns a JWT. The test script stores the token automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('Token stored:', json.token.substring(0, 20) + '...');",
+                  "} else {",
+                  "    console.warn('Register failed:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane.doe@example.com\",\n  \"password\": \"Password1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Authenticates an existing user and returns a JWT. The test script stores the token automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('Token stored:', json.token.substring(0, 20) + '...');",
+                  "} else {",
+                  "    console.warn('Login failed:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Wallets",
+      "description": "Wallet creation and balance retrieval. All requests use the token captured at login.",
+      "item": [
+        {
+          "name": "Create Wallet",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/wallets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallets"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerId\": \"owner-001\",\n  \"currency\": \"USD\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Creates a wallet for the given ownerId. Each owner may only have one wallet (409 if duplicate)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('ownerId', json.ownerId);",
+                  "    console.log('Wallet created for ownerId:', json.ownerId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Wallet Balance",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/wallets/{{ownerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "wallets", "{{ownerId}}"]
+            },
+            "description": "Returns the wallet and current balance for the given ownerId."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "description": "Payment initiation, status lookup, and paginated listing.",
+      "item": [
+        {
+          "name": "Initiate Payment (Credit)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"TXN-001\",\n  \"amount\": 500.00,\n  \"currency\": \"USD\",\n  \"walletOwnerId\": \"owner-001\",\n  \"type\": \"Credit\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Initiates a credit (top-up) transaction. Reference must be unique."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('txReference', json.reference);",
+                  "    console.log('Transaction reference stored:', json.reference);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Initiate Payment (Debit)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"TXN-002\",\n  \"amount\": 100.00,\n  \"currency\": \"USD\",\n  \"walletOwnerId\": \"owner-001\",\n  \"type\": \"Debit\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Initiates a debit transaction. Returns 422 if the wallet has insufficient funds."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/{{txReference}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "{{txReference}}"]
+            },
+            "description": "Gets the status of a transaction by reference."
+          },
+          "response": []
+        },
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"],
+              "query": [
+                { "key": "page",     "value": "1"  },
+                { "key": "pageSize", "value": "20" },
+                { "key": "status",   "value": "", "disabled": true, "description": "Optional: Pending, Successful, or Failed" }
+              ]
+            },
+            "description": "Paginated list of all transactions. Enable the 'status' query param to filter by status."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "description": "Simulates payment provider callbacks. The pre-request script computes HMAC-SHA512 over the raw request body using {{webhookSecret}} and injects it as X-PayFlow-Signature — no manual signing needed.",
+      "item": [
+        {
+          "name": "Process Webhook (Successful)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",       "value": "application/json" },
+              { "key": "X-PayFlow-Signature", "value": "{{webhookSignature}}", "description": "Computed automatically by the pre-request script." }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/notify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "notify"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionReference\": \"TXN-001\",\n  \"status\": \"Successful\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Simulates a payment provider confirming a transaction. Updates wallet balance for credit transactions."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Compute HMAC-SHA512 of the raw request body using the shared webhook secret.",
+                  "// This mirrors what a real payment provider (Paystack, Flutterwave, Stripe) does",
+                  "// before sending a webhook — so the API can verify the request is genuine.",
+                  "const secret  = pm.collectionVariables.get('webhookSecret');",
+                  "const payload = pm.request.body.raw;",
+                  "",
+                  "const signature = CryptoJS.HmacSHA512(payload, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('webhookSignature', signature);",
+                  "console.log('Webhook signature computed:', signature.substring(0, 20) + '...');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Process Webhook (Failed)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",       "value": "application/json" },
+              { "key": "X-PayFlow-Signature", "value": "{{webhookSignature}}", "description": "Computed automatically by the pre-request script." }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/notify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "notify"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionReference\": \"TXN-002\",\n  \"status\": \"Failed\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Simulates a payment provider marking a transaction as failed."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const secret  = pm.collectionVariables.get('webhookSecret');",
+                  "const payload = pm.request.body.raw;",
+                  "",
+                  "const signature = CryptoJS.HmacSHA512(payload, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('webhookSignature', signature);",
+                  "console.log('Webhook signature computed:', signature.substring(0, 20) + '...');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Process Webhook (Bad Signature)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",       "value": "application/json" },
+              { "key": "X-PayFlow-Signature", "value": "this-is-a-deliberately-wrong-signature" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/notify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "notify"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionReference\": \"TXN-001\",\n  \"status\": \"Successful\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Sends a deliberately wrong signature. Expect 401 Unauthorized — confirms the verification is working."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Profile and password management for the authenticated user. Requires a valid JWT — run Register or Login first.",
+      "item": [
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "me"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"email\": \"jane.smith@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Updates the authenticated user's first name, last name, and/or email. All fields are optional — send only the ones you want to change."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    console.log('Profile updated. Email:', json.email, '| UpdatedAt:', json.updatedAt);",
+                  "} else {",
+                  "    console.warn('Update profile failed:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "me", "password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Password1\",\n  \"newPassword\": \"NewPassword2\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Changes the authenticated user's password. Requires the current password for verification. Returns 204 No Content on success."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 204) {",
+                  "    console.log('Password changed successfully. Re-login required to get a fresh token.');",
+                  "} else {",
+                  "    console.warn('Change password failed:', pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Returns the health status of the API and its database connection."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

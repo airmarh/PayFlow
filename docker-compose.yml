@@ -1,0 +1,41 @@
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: payflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       payflow_db
+      POSTGRES_USER:     payflow_user
+      POSTGRES_PASSWORD: payflow_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payflow_user -d payflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── PayFlow API ──────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: PayFlow.API/Dockerfile
+    container_name: payflow_api
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: >-
+        Host=postgres;Port=5432;Database=payflow_db;
+        Username=payflow_user;Password=payflow_pass
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
