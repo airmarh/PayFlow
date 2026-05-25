@@ -22,7 +22,8 @@ public sealed class PaymentFlowIntegrationTests : IAsyncLifetime
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
     };
 
     public PaymentFlowIntegrationTests(PayFlowWebApplicationFactory factory)
