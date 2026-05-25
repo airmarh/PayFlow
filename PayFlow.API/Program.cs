@@ -113,38 +113,41 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddRateLimiter(options =>
+if (!builder.Environment.IsEnvironment("Testing"))
 {
-    // Auth endpoints — tight window to slow brute-force attacks
-    options.AddFixedWindowLimiter("auth", o =>
+    builder.Services.AddRateLimiter(options =>
     {
-        o.PermitLimit         = 10;
-        o.Window              = TimeSpan.FromMinutes(1);
-        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit          = 0;
-    });
+        // Auth endpoints — tight window to slow brute-force attacks
+        options.AddFixedWindowLimiter("auth", o =>
+        {
+            o.PermitLimit          = 10;
+            o.Window               = TimeSpan.FromMinutes(1);
+            o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            o.QueueLimit           = 0;
+        });
 
-    // General API endpoints — sliding window gives a smoother experience than fixed
-    options.AddSlidingWindowLimiter("api", o =>
-    {
-        o.PermitLimit          = 60;
-        o.Window               = TimeSpan.FromMinutes(1);
-        o.SegmentsPerWindow    = 6;
-        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit           = 5;
-    });
+        // General API endpoints — sliding window gives a smoother experience than fixed
+        options.AddSlidingWindowLimiter("api", o =>
+        {
+            o.PermitLimit          = 60;
+            o.Window               = TimeSpan.FromMinutes(1);
+            o.SegmentsPerWindow    = 6;
+            o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            o.QueueLimit           = 5;
+        });
 
-    // Webhook endpoint — payment providers may burst; keep the limit generous
-    options.AddFixedWindowLimiter("webhook", o =>
-    {
-        o.PermitLimit          = 200;
-        o.Window               = TimeSpan.FromMinutes(1);
-        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit           = 10;
-    });
+        // Webhook endpoint — payment providers may burst; keep the limit generous
+        options.AddFixedWindowLimiter("webhook", o =>
+        {
+            o.PermitLimit          = 200;
+            o.Window               = TimeSpan.FromMinutes(1);
+            o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            o.QueueLimit           = 10;
+        });
 
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-});
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    });
+}
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<PayFlowDbContext>("database");
@@ -159,7 +162,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCorrelationId();
-app.UseRateLimiter();
+if (!app.Environment.IsEnvironment("Testing"))
+    app.UseRateLimiter();
 app.UseGlobalExceptionHandling();
 
 if (app.Environment.IsDevelopment())

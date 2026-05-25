@@ -26,6 +26,8 @@ public sealed class PayFlowWebApplicationFactory : WebApplicationFactory<Program
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Testing");
+
         builder.ConfigureServices(services =>
         {
             // Replace the registered DbContext with one pointing at the test container
