@@ -22,6 +22,8 @@ A production-ready **.NET 8 Web API** for payment processing and wallet manageme
 
 ## Overview
 
+PayFlow demonstrates production-grade .NET backend patterns common in fintech systems including idempotent webhook processing, atomic balance updates, and HMAC signature verification.
+
 PayFlow is a payment-processing backend that provides:
 
 - **User authentication** — register, login, profile management, and password changes backed by JWT Bearer tokens
