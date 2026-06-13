@@ -7,16 +7,17 @@ A production-ready **.NET 8 Web API** for payment processing and wallet manageme
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Project Structure](#project-structure)
-4. [Technology Stack](#technology-stack)
-5. [Prerequisites](#prerequisites)
-6. [Running Locally](#running-locally)
-7. [Database Migrations](#database-migrations)
-8. [Running Tests](#running-tests)
-9. [API Endpoints](#api-endpoints)
-10. [Configuration](#configuration)
-11. [Design Decisions](#design-decisions)
+2. [Live Demo](#live-demo)
+3. [Architecture](#architecture)
+4. [Project Structure](#project-structure)
+5. [Technology Stack](#technology-stack)
+6. [Prerequisites](#prerequisites)
+7. [Running Locally](#running-locally)
+8. [Database Migrations](#database-migrations)
+9. [Running Tests](#running-tests)
+10. [API Endpoints](#api-endpoints)
+11. [Configuration](#configuration)
+12. [Design Decisions](#design-decisions)
 
 ---
 
@@ -30,6 +31,46 @@ PayFlow is a payment-processing backend that provides:
 - **Transaction management** — initiate, track, and list paginated payment transactions
 - **Wallet management** — create per-user wallets with credit/debit balance tracking
 - **Webhook processing** — receive asynchronous payment-status notifications from payment providers with full idempotency and HMAC-SHA512 signature verification
+
+---
+
+## Live Demo
+
+The API is deployed and running on Microsoft Azure.
+
+**Swagger UI:** https://payflow-api-emma.azurewebsites.net/swagger
+
+### Cloud Infrastructure
+
+| Resource | Detail |
+|---|---|
+| App Service | Azure App Service (Linux container, B1 tier) |
+| Database | Azure Database for PostgreSQL Flexible Server 16 |
+| Container Registry | Azure Container Registry |
+| Region | UK South |
+
+### Deployment Architecture
+
+The application is containerized using Docker and deployed to Azure App Service via Azure Container Registry. The multi-stage Dockerfile builds a lean production image targeting `linux/amd64`. The PostgreSQL database runs as a managed Azure flexible server instance, with EF Core migrations applied against the live database via the Azure CLI.
+
+```
+Local Machine
+    │
+    ├── docker buildx build --platform linux/amd64
+    │
+    ▼
+Azure Container Registry (payflowregistry)
+    │
+    ├── pulls image on startup
+    │
+    ▼
+Azure App Service (payflow-api-emma)
+    │
+    ├── connects via connection string env var
+    │
+    ▼
+Azure Database for PostgreSQL (payflow-db-server)
+```
 
 ---
 
@@ -168,6 +209,9 @@ PayFlow/
 | Unit Testing         | xUnit + Moq + FluentAssertions          |
 | Integration Testing  | xUnit + WebApplicationFactory + Testcontainers |
 | Containerisation     | Docker / Docker Compose                 |
+| Cloud Hosting        | Azure App Service (Linux container)     |
+| Cloud Database       | Azure Database for PostgreSQL           |
+| Container Registry   | Azure Container Registry                |
 
 ---
 
