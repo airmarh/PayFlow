@@ -166,15 +166,12 @@ if (!app.Environment.IsEnvironment("Testing"))
     app.UseRateLimiter();
 app.UseGlobalExceptionHandling();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "PayFlow API v1");
-        c.RoutePrefix = "swagger";
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "PayFlow API v1");
+    c.RoutePrefix = "swagger";
+});
 
 if (!app.Environment.IsDevelopment())
 {
